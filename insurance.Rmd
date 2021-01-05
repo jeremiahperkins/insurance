@@ -1,0 +1,141 @@
+---
+title: "Insurance Regression Model"
+name: Jeremiah Perkins 
+output: html_document
+---
+
+
+```{r setup, include=FALSE, echo=FALSE}
+knitr::opts_chunk$set(echo=TRUE, error=FALSE)
+```
+
+
+**Introduction**
+
+
+This report is a very short exploratory data analysis and regression of an insurance dataset that contains personal information about individuals and their charges when visiting the hospital. We began this project by loading in some packages that will be needed to make data analysis and visualization easier. Next, we factor a few of our variables and dive into graphical exploratory data analysis. We end this project by creating a model that predicts charges(dependent variable) with the other variables(independent) in the dataset. Enjoy :).
+
+
+```{r, LoadPackages, include = FALSE}
+library(ggiraph)
+library(ggiraphExtra)
+library(caret)
+library(PerformanceAnalytics)
+library(RColorBrewer)
+library(corrplot)
+library(readxl)
+library(tidyverse)
+library(broom)
+library(rsample)
+```
+
+
+
+
+After we load our necessary packages into R, we are able to load our data into R for analysis. We use the readxl function to load in the data from excel. 
+
+
+
+```{r, import data, echo = TRUE}
+insurance <- read_excel("~/Downloads/insurance.xlsx", 
+                        skip = 1)
+head(insurance)
+```
+
+
+We have a dataset that contains 1338 observations of 7 variables. A few of those variables will need to be factored for analysis, so we factor the variables; sex, region, and smoker. 
+
+
+```{r. echo = TRUE}
+insurance2 <- insurance %>% mutate(sex = factor(sex), smoker = factor(smoker), region = factor(region))
+head(insurance2)
+summary(insurance2)
+```
+
+
+
+
+
+
+
+After factoring some of our variables, we call summary on our dataset to get an idea of our data overall. We see that the mean age is 39 and mean charges are $13,270. The region columns and sex columns distributed pretty evenly , but the amount of individuals that do not smoker are far greater than those that do smoke. 
+
+
+
+
+**Exploratory Data Analysis**
+```{r, echo = TRUE}
+ggplot(insurance2, aes(x = age, y = charges, color = smoker)) + geom_point(alpha = 0.6, shape = 16) + labs(insurance2, title = "Charges by Age", x = "Age", y = "Charges") + theme_classic()
+ggplot(insurance2, aes(x = sex, fill = sex)) + geom_bar() + labs(insurance2, title = "Male/Female", x = "Sex", y = "Number of Males/Females") + theme_test()                                                                                                                  
+ggplot(insurance2, aes(x = children)) + geom_bar() + labs(insurance2, title = "Children", x = "Childern", y = "Number of Children") + theme_light()                                                                                                                   
+ggplot(insurance2, aes(x = region, fill = region, color = region)) + geom_bar() + labs(insurance2, title = "Regions", x = "Region", y = "Number of Regions") + theme_light()
+ggplot(insurance2, aes(x = smoker, fill = smoker, region = smoker)) + geom_bar() + labs(insurance2, title = "Smokers", x = "Smokers vs Nonsmokers", y = "Number of Smokers") + theme_light()
+insurance3 <- insurance2 %>% select(age, bmi, children, charges)
+chart.Correlation(insurance3)
+tibble <- tibble(low_charges = nrow(filter(insurance2, charges < 15000)), high_charges = nrow(filter(insurance2, charges > 50000)))
+```
+
+
+
+
+
+Visualizations help with understanding how the data is spread visually instead of numerically. There are a few things we wanted to find out by viewing the graphs; what is the correlation between age and charges, and counts of our factored data. We can easily see that there is a weak positive correlation between charges and age, but a significant positive correlation between charges and if the individual smokes. Next, we created a correlation graph between all of our numeric data and we finished up by creating a tibble of our outliers of chargers which we say are less than $15,000 and more than $50,000. 
+
+
+
+
+
+**Model**
+```{r, echo = TRUE}
+set.seed(123)
+insurance_split <- initial_split(insurance2, prop = .80)
+training_data <- training(insurance_split)
+test_data <- testing(insurance_split)
+dim(training_data)
+dim(test_data)
+model <- lm(charges ~ ., data = training_data)
+insurance_predict <- predict(model, newdata = test_data)
+error <- insurance_predict - test_data[["charges"]]
+print(error)
+sqrt(mean(error^2))
+```
+
+
+
+
+Our next step includes creating a model that predicts individuals charges. We do this by creating a linear regression model with charges as the dependent variable with age, bmi, region, sex, smoker, and children as our independent variables. There are a few assumptions of a linear model that we should go over for clarity. 
+
+* Linear relationship: There exists a linear relationship between the independent variable, x, and the dependent variable, y. 
+*Independence: The residuals are independent, there is no correlation between consecutive residuals in time series data.
+* Homoscedasticity: The residuals have constant variance at every level of x.
+*Normality: The residuals of the model are normally distributed.
+
+
+Knowing those assumptions, we need to split our data into a training set and a test set to see how accurate our model is on unseen data instead of running the model on data we already know. So we do a 80/20 split on the data, with 80 percent going into training the data and 20 percent creating the test set. After running the regression our model is as followed:
+charges = -12,220.61 + 259.50(age) + -110.25(sexmale) + 340.30(bmi) + 417.12(children) + 23,617.29(smokeryes) + error.
+
+
+If we wanted to predict the charges for an individual we would just insert the information into the above formula and that would predict the charges. We see that from our model if you smoke, charges increase by $23,617.29. We also see from our model that if you are a male, charges tend to decrease by 110.25 dollars.
+
+
+
+
+
+
+
+```{r, echo = TRUE}
+model2 <- train(charges ~ ., data = insurance2, method = "lm", trControl = trainControl(method = "cv", number = 10, verboseIter =  TRUE))
+print(model2)
+insurance_predict_final <- predict(model2, insurance2)
+insurance_predict_dataframe <- data.frame(charges_predicted = predict(model2, insurance2))
+```
+
+
+
+I always like to cross validate my models to see how it would perform if we split the data into test/train split 10 times. This gives a more accurate prediction of our model and a better understanding of the error in the model. This step is exactly the same as the one above, but instead of manually splitting our data ten times, we automate. 
+
+
+
+
+**Conclusion**
+This was a very short report of individual insurance charges. We found that smoking has a significant impact on your hospital charges, which is probably associated with the health problems that smoking causes. 
